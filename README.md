@@ -2,7 +2,7 @@
 
 An AI-powered consulting strategist tool that matches new client needs to past Statements of Work (SOWs) and generates solution recommendations. Built with FastAPI, Supabase, OpenAI, and Streamlit.
 
-## 🔧 Features
+## Features
 
 - Match client prompts to similar past SOWs using embeddings
 - Generate 2–3 tailored solution suggestions via GPT-4o
@@ -12,7 +12,7 @@ An AI-powered consulting strategist tool that matches new client needs to past S
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```bash
 
@@ -31,7 +31,7 @@ consulting-app/
 ```
 ---
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 ### 1. Environment Setup
 
@@ -91,14 +91,14 @@ uvicorn app:app --reload
 streamlit run streamlit_app.py
 ```
 
-## ✨ Example Prompt
+## Example Prompt
 
 ```bash
 We need to integrate multiple hospital data sources
  into a unified analytics platform on the cloud.
 ```
 
-## ✅ To-Do / Ideas
+## To-Do / Ideas
 	•	Deploy FastAPI + Streamlit online
 	•	Add user login and project history
 	•	Support multi-SOW report generation
