@@ -5,29 +5,30 @@ An AI-powered consulting strategist tool that matches new client needs to past S
 ## Features
 
 - Match client prompts to similar past SOWs using embeddings
-- Generate 2–3 tailored solution suggestions via GPT-4o
-- Save suggestions to Supabase
-- Export recommendations as a text file
-- Simple, clean Streamlit interface
+- Generate 2–3 tailored tech solution suggestions via GPT-4o model
+- Save suggestions to Supabase table
+- Export recommendations as a TXT file
+- Simple, clean Streamlit UI
 
 ---
 
 ## Project Structure
 
 ```bash
-
 consulting-app/
-│
-├── app.py               # FastAPI backend with API endpoints
-├── seed_db.py           # Script to generate and store embeddings
-├── streamlit_app.py     # Streamlit frontend UI
-├── requirements.txt     # Python dependencies
-├── .env                 # Environment variables (not committed)
-└── consulting/          # Supabase schema and data tables
-    ├── sows             # Statements of Work
-    ├── clients          # Client info
-    ├── solutions        # Past solutions
-    └── embeddings       # Vector embeddings for SOW matching
+├─ main/
+   ├── .env                 # Environment variables (not committed)
+   ├── __init__.py
+   ├── app.py               # FastAPI backend with API endpoints
+   ├── run.sh               # Shell exe
+   ├── seed_db.py           # Script to generate and store embeddings
+   ├── streamlit_app.py     # Streamlit frontend UI
+   ├── requirements.txt     # Python dependencies
+
+└── static/          # Supabase schema and data tables
+   ├── supabase_schema_ddl.sql
+└── .gitignore
+└── README.md
 ```
 ---
 
@@ -55,7 +56,8 @@ SUPABASE_POSTGRES_URL=postgresql://user:pass@host:port/dbname
 
 ### 3. Database
 
-Ensure you’ve created the following tables in your Supabase PostgreSQL instance:
+Use static/database/supabase_schema_ddl.sql to ensure you’ve created the following tables in your Supabase PostgreSQL 
+instance:
 
 ```postgresql
 -- consulting.sows, consulting.clients, consulting.solutions
@@ -79,16 +81,10 @@ CREATE TABLE consulting.saved_suggestions (
 python seed_db.py
 ```
 
-### 5. Run Backend
+### 5. Run Shell script
 
 ```bash
-uvicorn app:app --reload
-```
-
-### 5. Run Frontend
-
-```bash
-streamlit run streamlit_app.py
+./run.sh
 ```
 
 ## Example Prompt

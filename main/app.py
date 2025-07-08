@@ -18,12 +18,20 @@ from supabase import Client, create_client
 # FastAPI config
 load_dotenv()
 openai_api_key = os.getenv('OPENAI_API_KEY')
+model_embeddings = 'text-embedding-3-small'
+model_chat = 'gpt-4o-mini'
+max_tokens = 1000
 client = OpenAI(api_key=openai_api_key)
 app = FastAPI()
 
 # Supabase config
 supabase_url = os.getenv('SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_KEY')
+supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+db_url = os.getenv('DB_URL')
+db_schema = 'consulting'
+db_table_clients = 'clients'
+db_table_sows = 'sows'
+db_table_solutions = 'solutions'
 supabase: Client = create_client(supabase_url, supabase_key)
 
 
@@ -34,26 +42,26 @@ class PromptRequest(BaseModel):
 
 @app.get('/clients')
 def get_clients():
-    response = supabase.schema('consulting').table('clients').select('*').execute()
+    response = supabase.schema(db_schema).table(db_table_clients).select('*').execute()
     return response.data
 
 
 @app.get('/clients/{client_id}/sows')
 def get_client_sows(client_id: str):
-    response = supabase.schema('consulting').table('sows').select('*').eq('client_id', client_id).execute()
+    response = supabase.schema(db_schema).table(db_table_sows).select('*').eq('client_id', client_id).execute()
     return response.data
 
 
 @app.get('/sows/{sow_id}/solutions')
 def get_sow_solutions(sow_id: str):
-    response = supabase.schema('consulting').table('solutions').select('*').eq('sow_id', sow_id).execute()
+    response = supabase.schema(db_schema).table(db_table_solutions).select('*').eq('sow_id', sow_id).execute()
     return response.data
 
 
 @app.get('/sows/{sow_id}/suggestions')
 def generate_suggestions_from_sow(sow_id: str):
     # Fetch the SOW content
-    sow_data = supabase.schema('consulting').table('sows').select('*').eq('id', sow_id).single().execute()
+    sow_data = supabase.schema(db_schema).table(db_table_sows).select('*').eq('id', sow_id).single().execute()
     if not sow_data.data:
         raise HTTPException(status_code=404, detail='SOW not found')
 
@@ -61,11 +69,11 @@ def generate_suggestions_from_sow(sow_id: str):
     sow_content = sow_data.data['content']
 
     # Step 1: Embed the SOW content
-    embedding_response = openai.embeddings.create(input=sow_content, model='text-embedding-3-small')
+    embedding_response = openai.embeddings.create(input=sow_content, model=model_embeddings)
     prompt_embedding = np.array(embedding_response.data[0].embedding)
 
     # Step 2: Fetch embeddings from the DB
-    conn = psycopg2.connect(os.getenv('SUPABASE_POSTGRES_URL'))
+    conn = psycopg2.connect(db_url)
     cur = conn.cursor()
     cur.execute('SELECT sow_id, embedding FROM consulting.embeddings WHERE sow_id != %s', (sow_id,))
     rows = cur.fetchall()
@@ -84,7 +92,7 @@ def generate_suggestions_from_sow(sow_id: str):
     # Step 3: Fetch matched SOWs
     matched_contents = []
     for match_id in top_sow_ids:
-        response = supabase.schema('consulting').table('sows').select('*').eq('id', match_id).single().execute()
+        response = supabase.schema(db_schema).table(db_table_sows).select('*').eq('id', match_id).single().execute()
         if response.data:
             matched_contents.append(response.data['content'])
 
@@ -99,17 +107,18 @@ def generate_suggestions_from_sow(sow_id: str):
     Based on these similar past SOWs:
     {joined_sows}
 
-    Suggest 2-3 specific solutions for this client.
+    Suggest 2-3 specific solutions for this client,
+    along with recommended team size and predicted duration.
     """
 
     # Step 5: Get suggestions from GPT
     chat_response = openai.chat.completions.create(
-        model='gpt-4o-mini',
+        model=model_chat,
         messages=[
             {'role': 'system', 'content': 'You are an expert consulting strategist.'},
             {'role': 'user', 'content': final_prompt},
         ],
-        max_tokens=300,
+        max_tokens=max_tokens,
         temperature=0.7,
     )
 
@@ -122,11 +131,11 @@ def generate_suggestions(request: PromptRequest = Body(...)):
     prompt = request.prompt
 
     # Step 1: Embed the new client prompt
-    embedding_response = openai.embeddings.create(input=prompt, model='text-embedding-3-small')
+    embedding_response = openai.embeddings.create(input=prompt, model=model_embeddings)
     prompt_embedding = np.array(embedding_response.data[0].embedding)
 
     # Step 2: Fetch embeddings from the DB
-    conn = psycopg2.connect(os.getenv('SUPABASE_POSTGRES_URL'))
+    conn = psycopg2.connect(db_url)
     cur = conn.cursor()
     cur.execute('SELECT sow_id, embedding FROM consulting.embeddings')
     rows = cur.fetchall()
@@ -145,7 +154,7 @@ def generate_suggestions(request: PromptRequest = Body(...)):
     # Step 3: Fetch matched SOWs
     matched_contents = []
     for sow_id in top_sow_ids:
-        response = supabase.schema('consulting').table('sows').select('*').eq('id', sow_id).single().execute()
+        response = supabase.schema(db_schema).table(db_table_sows).select('*').eq('id', sow_id).single().execute()
         if response.data:
             matched_contents.append(response.data['content'])
 
@@ -160,17 +169,18 @@ def generate_suggestions(request: PromptRequest = Body(...)):
     Based on these similar past SOWs:
     {joined_sows}
 
-    Suggest 2-3 specific solutions for this client.
+    Suggest 2-3 specific solutions for this client,
+    along with recommended team size and predicted duration.
     """
 
     # Step 5: Get suggestions from GPT (goes right here)
     chat_response = openai.chat.completions.create(
-        model='gpt-4o-mini',
+        model=model_chat,
         messages=[
             {'role': 'system', 'content': 'You are an expert consulting strategist.'},
             {'role': 'user', 'content': final_prompt},
         ],
-        max_tokens=300,
+        max_tokens=max_tokens,
         temperature=0.7,
     )
 
@@ -184,11 +194,11 @@ def match_sows(request: PromptRequest):
     prompt = request.prompt
 
     # Embed the prompt
-    embedding_response = openai.embeddings.create(input=prompt, model='text-embedding-3-small')
+    embedding_response = openai.embeddings.create(input=prompt, model=model_embeddings)
     prompt_embedding = np.array(embedding_response.data[0].embedding)
 
     # Connect to the DB and fetch all stored embeddings
-    conn = psycopg2.connect(os.getenv('SUPABASE_POSTGRES_URL'))
+    conn = psycopg2.connect(db_url)
     cur = conn.cursor()
     cur.execute('SELECT sow_id, embedding FROM consulting.embeddings')
     rows = cur.fetchall()
@@ -207,7 +217,7 @@ def match_sows(request: PromptRequest):
 
     matches = []
     for sow_id in match_ids:
-        response = supabase.schema('consulting').table('sows').select('*').eq('id', sow_id).single().execute()
+        response = supabase.schema(db_schema).table(db_table_sows).select('*').eq('id', sow_id).single().execute()
         matches.append(response.data)
 
     return {'matches': matches}
@@ -216,10 +226,10 @@ def match_sows(request: PromptRequest):
 def generate_report(request: PromptRequest):
     prompt = request.prompt
 
-    embedding_response = client.embeddings.create(input=prompt, model='text-embedding-3-small')
+    embedding_response = client.embeddings.create(input=prompt, model=model_embeddings)
     prompt_embedding = np.array(embedding_response.data[0].embedding)
 
-    conn = psycopg2.connect(os.getenv('SUPABASE_POSTGRES_URL'))
+    conn = psycopg2.connect(db_url)
     cur = conn.cursor()
     cur.execute('SELECT sow_id, embedding FROM consulting.embeddings')
     rows = cur.fetchall()
@@ -238,7 +248,7 @@ def generate_report(request: PromptRequest):
 
     context_blocks = []
     for sow_id in match_ids:
-        response = supabase.schema('consulting').table('sows').select('*').eq('id', sow_id).single().execute()
+        response = supabase.schema(db_schema).table(db_table_sows).select('*').eq('id', sow_id).single().execute()
         sow = response.data
         block = f"""Title: {sow['sow_title']}
 Content:
@@ -255,16 +265,17 @@ Here are similar past client SOWs:
 
 {prompt_context}
 
-Based on this context, generate 2–3 specific solution recommendations for the new client.
+Based on this context, generate 2–3 specific solution recommendations for the new client,
+along with recommended team size and predicted duration.
 """
 
     response = client.chat.completions.create(
-        model='gpt-4o-mini',
+        model=model_chat,
         messages=[
             {'role': 'system', 'content': 'You are an expert consulting strategist.'},
             {'role': 'user', 'content': full_prompt},
         ],
-        max_tokens=600,
+        max_tokens=max_tokens,
         temperature=0.7,
     )
 
@@ -280,7 +291,7 @@ def save_suggestion(request: dict = Body(...)):
     if not isinstance(suggestions, list):
         raise HTTPException(status_code=400, detail='Suggestions must be a list')
 
-    response = supabase.schema('consulting').table('saved_suggestions').insert({
+    response = supabase.schema(db_schema).table('saved_suggestions').insert({
         'prompt': prompt,
         'suggestions': suggestions  # List will be serialized as text[]
     }).execute()

@@ -10,10 +10,11 @@ load_dotenv()
 
 # Set up OpenAI client
 openai_api_key = os.getenv('OPENAI_API_KEY')
+model_embeddings = 'text-embedding-3-small'
 client = OpenAI(api_key=openai_api_key)
 
 # Database connection
-conn = psycopg2.connect(os.getenv('SUPABASE_POSTGRES_URL'))
+conn = psycopg2.connect(os.getenv('DB_URL'))
 cur = conn.cursor()
 
 # Fetch all SOWs
@@ -25,7 +26,7 @@ for sow_id, content in sows:
 
     response = client.embeddings.create(
         input=content,
-        model='text-embedding-3-small'
+        model=model_embeddings
     )
     embedding = response.data[0].embedding
 
