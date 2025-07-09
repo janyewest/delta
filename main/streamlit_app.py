@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# streamlit run streamlit_app.py
+
 import streamlit as st
 import requests
 
-# Example prompt:
-# We need to integrate multiple hospital data sources into a unified analytics platform on the cloud.
+# Example prompt: We need to integrate multiple hospital data sources into a unified analytics platform on the cloud.
+
 
 API_URL = 'http://127.0.0.1:8000'
 
